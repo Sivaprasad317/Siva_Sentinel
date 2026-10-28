@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AssistantAction, AssistantReply, Briefing, ChatMessage, Preferences, ScanKind } from '../lib/types';
 import { createRecognition, canSpeak, speak, stopSpeaking, type RecognitionLike } from '../lib/voice';
-import { detectWake } from '../lib/assistantRouter';
+import { detectWakeAny } from '../lib/assistantRouter';
 import SivaOrb, { type OrbState } from './SivaOrb';
 
 interface Props {
@@ -79,17 +79,23 @@ export default function AskSiva({ briefing, prefs, onShowStory, onAction, userTi
     if (!rec) return;
     rec.continuous = true;
     rec.interimResults = false;
+    rec.maxAlternatives = 4;
     wakeRef.current = rec;
     rec.onresult = (e) => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (!e.results[i].isFinal) continue;
-        const heard: string = e.results[i][0].transcript;
-        const { woke, command } = detectWake(heard);
+        const alts: string[] = Array.from({ length: e.results[i].length }, (_, k) => String(e.results[i][k].transcript));
+        const { woke, command, text: heard } = detectWakeAny(alts);
         if (woke && command) void handleRef.current(command);
         else if (woke) {
-          awaitingUntil.current = Date.now() + 12000;
+          const until = Date.now() + 12000;
+          awaitingUntil.current = until;
           setInterim(`Yes ${userTitle}, I am listening…`);
-          sayRef.current(`Yes ${userTitle}.`);
+          // The question often arrives as the next piece; only answer aloud (which pauses the mic)
+          // if nothing followed.
+          setTimeout(() => {
+            if (awaitingUntil.current === until) sayRef.current(`Yes ${userTitle}.`);
+          }, 1600);
         } else if (Date.now() < awaitingUntil.current) {
           awaitingUntil.current = 0;
           setInterim('');

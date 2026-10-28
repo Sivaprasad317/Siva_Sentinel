@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AnswerCard, AssistantAction, AssistantReply, Briefing, Preferences, ScanKind } from '../lib/types';
 import { createRecognition, canSpeak, speak, stopSpeaking, type RecognitionLike } from '../lib/voice';
-import { detectWake, routeIntent } from '../lib/assistantRouter';
+import { detectWake, detectWakeAny, routeIntent } from '../lib/assistantRouter';
 import type { OrbState } from './SivaOrb';
 import { toCard } from '../lib/answerCard';
 import { emitSiva, onSiva } from '../lib/sivaBus';
@@ -115,6 +115,11 @@ export default function HomeView({ active = true, briefing, prefs, userTitle, on
   const wakeRunning = useRef(false);
   const blockedRef = useRef(false); // permission refused: wait for a click instead of retrying in a loop
   const failStreak = useRef(0);
+  const wakeWait = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearWakeWait = () => {
+    if (wakeWait.current) clearTimeout(wakeWait.current);
+    wakeWait.current = null;
+  };
   /** Stop the wake-word listener and ignore any late callbacks from it. */
   const stopWake = useCallback(() => {
     const r = wakeRef.current;
@@ -409,6 +414,7 @@ export default function HomeView({ active = true, briefing, prefs, userTitle, on
     if (!rec) return;
     rec.continuous = true;
     rec.interimResults = false;
+    rec.maxAlternatives = 4; // "hey shiva" is often only the engine's 2nd or 3rd guess
     wakeRef.current = rec;
     wakeRunning.current = true;
     let gotAudio = false;
@@ -417,11 +423,27 @@ export default function HomeView({ active = true, briefing, prefs, userTitle, on
       if (!current()) return;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (!e.results[i].isFinal) continue;
-        const said: string = e.results[i][0].transcript;
-        const { woke, command } = detectWake(said);
-        setLastHeard({ text: said.trim(), woke: woke || Date.now() < awaitingUntil.current });
-        if (woke) handleRef.current(command ? said : 'Hey Siva');
-        else if (Date.now() < awaitingUntil.current) {
+        const alts: string[] = Array.from({ length: e.results[i].length }, (_, k) => String(e.results[i][k].transcript));
+        const { woke, command, text: said } = detectWakeAny(alts);
+        setLastHeard({ text: said, woke: woke || Date.now() < awaitingUntil.current });
+        if (woke && command) {
+          clearWakeWait();
+          handleRef.current(`Hey Siva ${command}`);
+        } else if (woke) {
+          // Just "Hey Siva": Chrome often sends the question as the NEXT piece. Keep this same mic
+          // session open and wait a moment for it, instead of talking over it (which stops the mic).
+          awaitingUntil.current = Date.now() + 10_000;
+          setOrb('listening');
+          setHeard('Listening…');
+          clearWakeWait();
+          wakeWait.current = setTimeout(() => {
+            wakeWait.current = null;
+            if (Date.now() >= awaitingUntil.current) return;
+            awaitingUntil.current = 0;
+            handleRef.current('Hey Siva'); // nothing followed: answer "Yes boss" and listen
+          }, 1_600);
+        } else if (Date.now() < awaitingUntil.current) {
+          clearWakeWait();
           awaitingUntil.current = 0;
           handleRef.current(said);
         }

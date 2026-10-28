@@ -106,5 +106,25 @@ export function detectWake(heard: string): { woke: boolean; command: string } {
     if (soundsLike(bare, WAKE_NAMES)) return { woke: true, command: words.slice(i + 1).join(' ').trim() };
     break; // only the first real word can be the name
   }
+  // Mid-sentence ("okay so hey siva what is…"): only with a greeting right before the name, so
+  // just mentioning Shiva in conversation does not wake her.
+  const greet = new Set(['hey', 'hi', 'ok', 'okay', 'hello', 'hay']);
+  for (let i = 1; i < words.length - 1; i++) {
+    if (!greet.has(words[i].replace(/[^a-z]/gi, '').toLowerCase())) continue;
+    const name = words[i + 1].replace(/[^a-z0-9]/gi, '');
+    if (name && soundsLike(name, WAKE_NAMES)) return { woke: true, command: words.slice(i + 2).join(' ').replace(/^[\s,.:!?-]+/, '').trim() };
+  }
   return { woke: false, command: '' };
+}
+
+/**
+ * Check every alternative the speech engine offered (it often has "hey shiva" as its 2nd guess).
+ * Returns the first alternative that contains the wake word, else the top guess with woke=false.
+ */
+export function detectWakeAny(alternatives: string[]): { woke: boolean; command: string; text: string } {
+  for (const alt of alternatives) {
+    const w = detectWake(alt);
+    if (w.woke) return { ...w, text: alt.trim() };
+  }
+  return { woke: false, command: '', text: (alternatives[0] ?? '').trim() };
 }
