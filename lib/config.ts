@@ -19,6 +19,8 @@ export const FEEDS: FeedConfig[] = [
   { name: 'SecurityWeek', url: 'https://www.securityweek.com/feed/', official: false },
   { name: 'Krebs on Security', url: 'https://krebsonsecurity.com/feed/', official: false },
   { name: 'Dark Reading', url: 'https://www.darkreading.com/rss.xml', official: false },
+  // ZeroHour (zerohour.day): AI-classified security news from ~117 sources; importance >= 30, cyber only.
+  { name: 'ZeroHour', url: 'https://zerohour.day/feed.xml?domain=cyber', official: false },
   // More cybersecurity news
   { name: 'The Record', url: 'https://therecord.media/feed', official: false },
   { name: 'Security Affairs', url: 'https://securityaffairs.com/feed', official: false },

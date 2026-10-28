@@ -83,7 +83,12 @@ export function discoverFeedLinks(html: string, pageUrl: string): string[] {
   return out;
 }
 
-export function parseFeed(xml: string, source: string, official: boolean, now: Date = new Date(), aggregator = false): RawItem[] {
+/**
+ * Aggregators such as ZeroHour link to their own page and name the original article in
+ * <source url="…">. With `preferSourceUrl` we cite the original article instead, so the same
+ * story from several feeds de-duplicates and the article reader fetches the real publisher.
+ */
+export function parseFeed(xml: string, source: string, official: boolean, now: Date = new Date(), aggregator = false, preferSourceUrl = false): RawItem[] {
   const items: RawItem[] = [];
   const blockRe = /<(item|entry)\b[^>]*>([\s\S]*?)<\/\1>/gi;
   let m: RegExpExecArray | null;
@@ -96,10 +101,15 @@ export function parseFeed(xml: string, source: string, official: boolean, now: D
       const guid = firstTag(block, ['guid', 'id']);
       if (guid && /^https?:/i.test(guid)) link = guid;
     }
+    if (preferSourceUrl) {
+      const original = /<source\b[^>]*\surl\s*=\s*["']([^"']+)["']/i.exec(block)?.[1];
+      if (original && canonicalUrl(decodeEntities(original))) link = decodeEntities(original);
+    }
     const url = link ? canonicalUrl(link) : null;
     if (!title || !url) continue; // skip items we cannot cite properly
     const rawDate = firstTag(block, ['pubDate', 'dc:date', 'published', 'updated', 'a10:updated']);
-    const desc = firstTag(block, ['description', 'summary', 'content:encoded', 'content']) ?? '';
+    // ZeroHour appends "Source: <url>" and an "Analyze with …" link after the summary; drop them.
+    const desc = (firstTag(block, ['description', 'summary', 'content:encoded', 'content']) ?? '').split(/\n\s*(?:Source|Analyze with [^:\n]*):\s/)[0];
     // News aggregators (Google News) name the real publisher in <source>; credit them, and drop the
     // " - Publisher" suffix from the title so the same story from two feeds de-duplicates.
     let publisher = stripHtml(firstTag(block, ['source']) ?? '', 80);

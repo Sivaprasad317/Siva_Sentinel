@@ -14,7 +14,8 @@ export async function fetchFeed(feed: FeedConfig, now = new Date()): Promise<{ i
       publicOnly: true,
       headers: { 'user-agent': getEnv().userAgent, accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' },
     });
-    const aggregator = /news\.google\.com/i.test(feed.url);
+    const zerohour = /(^|\/\/)zerohour\.day\//i.test(feed.url);
+    const aggregator = /news\.google\.com/i.test(feed.url) || zerohour;
     let xml = await readTextLimited(res);
     let note: string | undefined;
     // A blog home page instead of a feed: find its advertised RSS/Atom feed and read that instead.
@@ -39,7 +40,7 @@ export async function fetchFeed(feed: FeedConfig, now = new Date()): Promise<{ i
       }
       if (!got) throw new Error('The page advertises a feed, but it could not be read.');
     }
-    const items = parseFeed(xml, feed.name, feed.official, now, aggregator);
+    const items = parseFeed(xml, feed.name, feed.official, now, aggregator, zerohour);
     return { items, status: { name: feed.name, kind: 'rss', ok: true, items: items.length, fetchedAt, ...(note ? { note } : {}) } };
   } catch (err) {
     return { items: [], status: { name: feed.name, kind: 'rss', ok: false, items: 0, error: (err as Error).message, fetchedAt } };
