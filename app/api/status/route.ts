@@ -14,6 +14,9 @@ export async function GET() {
   const env = getEnv();
   const tz = store.preferences.timezone;
   const todayKey = zonedParts(new Date(), tz).dateKey;
+  // Only rows from the last ~36 h can be "today" in any time zone; skip formatting the rest.
+  const recentCutoff = Date.now() - 36 * 3_600_000;
+  const recent = store.feedLog.filter((e) => Date.parse(e.firstSeenAt) >= recentCutoff);
   return json({
     refresh: getRefreshState(),
     latestBriefingAt: store.briefings[0]?.createdAt ?? null,
@@ -36,7 +39,7 @@ export async function GET() {
     nextLiveInMinutes: minutesToNextLive(new Date(), store.preferences.liveRefreshMinutes, store.meta.lastRunAt ?? null),
     feedLog: {
       total: store.feedLog.length,
-      today: store.feedLog.filter((e) => zonedParts(new Date(e.firstSeenAt), tz).dateKey === todayKey).length,
+      today: recent.filter((e) => zonedParts(new Date(e.firstSeenAt), tz).dateKey === todayKey).length,
       kev: store.feedLog.filter((e) => e.kev).length,
       cyber: store.feedLog.filter((e) => e.cyber !== false).length,
       lastNew: store.meta.lastNewItems ?? 0,

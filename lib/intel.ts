@@ -288,6 +288,8 @@ async function buildIndex(previous: IntelIndex | null): Promise<IntelIndex> {
   }
   index.groups = [...attackGroups, ...mispGroups];
   index.software = [...attackSoftware, ...malpedia];
+  // A failed download should be retried in ~6 hours, not after another full week.
+  if (Object.values(index.status).some((s) => s.startsWith('failed'))) index.builtAt = new Date(Date.now() - WEEK + 6 * 3_600_000).toISOString();
   return index;
 }
 

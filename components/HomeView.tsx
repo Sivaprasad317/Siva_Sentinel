@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AnswerCard, AssistantAction, AssistantReply, Briefing, Preferences, ScanKind } from '../lib/types';
-import { createRecognition, canSpeak, speak, stopSpeaking, type RecognitionLike } from '../lib/voice';
+import { chime, createRecognition, canSpeak, speak, stopSpeaking, type RecognitionLike } from '../lib/voice';
 import { detectWake, detectWakeAny, routeIntent } from '../lib/assistantRouter';
 import type { OrbState } from './SivaOrb';
 import { toCard } from '../lib/answerCard';
@@ -428,11 +428,13 @@ export default function HomeView({ active = true, briefing, prefs, userTitle, on
         setLastHeard({ text: said, woke: woke || Date.now() < awaitingUntil.current });
         if (woke && command) {
           clearWakeWait();
+          chime();
           handleRef.current(`Hey Siva ${command}`);
         } else if (woke) {
           // Just "Hey Siva": Chrome often sends the question as the NEXT piece. Keep this same mic
           // session open and wait a moment for it, instead of talking over it (which stops the mic).
           awaitingUntil.current = Date.now() + 10_000;
+          chime();
           setOrb('listening');
           setHeard('Listening…');
           clearWakeWait();

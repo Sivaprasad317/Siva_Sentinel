@@ -1,6 +1,7 @@
 // Numbers for the main dashboard charts, computed from everything Siva has read (the live feed log).
 // Pure functions so they can be tested without a browser.
 import type { FeedLogEntry, Priority } from './types';
+import { dtf } from './format';
 
 export const SEVERITIES: Priority[] = ['critical', 'high', 'medium', 'low'];
 
@@ -29,7 +30,7 @@ const DAY = 86_400_000;
 function dayKey(d: Date, tz: string): string {
   try {
     // en-CA formats as YYYY-MM-DD
-    return d.toLocaleDateString('en-CA', { timeZone: tz });
+    return dtf('en-CA', { timeZone: tz }).format(d);
   } catch {
     return d.toISOString().slice(0, 10);
   }
@@ -47,8 +48,8 @@ export function dashboardStats(log: FeedLogEntry[], now: Date, tz: string, dayCo
     if (index.has(key)) continue;
     const b: DayBucket = {
       key,
-      label: d.toLocaleDateString('en-GB', { timeZone: tz, day: 'numeric', month: 'short' }),
-      weekday: d.toLocaleDateString('en-GB', { timeZone: tz, weekday: 'short' }),
+      label: dtf('en-GB', { timeZone: tz, day: 'numeric', month: 'short' }).format(d),
+      weekday: dtf('en-GB', { timeZone: tz, weekday: 'short' }).format(d),
       counts: zero(),
       kev: 0,
       total: 0,

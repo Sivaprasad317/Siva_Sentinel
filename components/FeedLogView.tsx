@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FeedLogEntry } from '../lib/types';
 import { sortKey } from '../lib/feedLog';
-import { timeAgo } from '../lib/format';
+import { dtf, timeAgo } from '../lib/format';
 
 interface Payload {
   items: FeedLogEntry[];
@@ -21,8 +21,8 @@ function when(iso: string, tz: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return { date: '—', day: '—' };
   return {
-    date: d.toLocaleString('en-GB', { timeZone: tz, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }),
-    day: d.toLocaleString('en-GB', { timeZone: tz, weekday: 'long' }),
+    date: dtf('en-GB', { timeZone: tz, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(d),
+    day: dtf('en-GB', { timeZone: tz, weekday: 'long' }).format(d),
   };
 }
 

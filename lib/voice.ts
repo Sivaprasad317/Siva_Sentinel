@@ -34,6 +34,30 @@ export function createRecognition(lang: string): RecognitionLike | null {
   return r;
 }
 
+/** A short two-note chime: instant "I heard you" feedback that does not need the mic to pause. */
+export function chime() {
+  try {
+    const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AC) return;
+    const ctx: AudioContext = new AC();
+    [880, 1320].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const t = ctx.currentTime + i * 0.09;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.12, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.13);
+    });
+    setTimeout(() => void ctx.close(), 400);
+  } catch {
+    /* audio blocked: the visual "Listening…" still shows */
+  }
+}
+
 export function canSpeak(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }

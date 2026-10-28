@@ -1,9 +1,10 @@
 // Timezone-aware scheduling maths. Pure functions, so they are easy to test.
 import type { Preferences } from './types';
+import { dtf } from './format';
 
 export function isValidTimezone(tz: string): boolean {
   try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    dtf('en-US', { timeZone: tz });
     return true;
   } catch {
     return false;
@@ -16,7 +17,7 @@ export function isValidHHMM(s: string): boolean {
 
 /** Calendar date and wall-clock time of `date` in timezone `tz`. */
 export function zonedParts(date: Date, tz: string): { dateKey: string; hhmm: string } {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dtf('en-CA', {
     timeZone: tz,
     year: 'numeric',
     month: '2-digit',

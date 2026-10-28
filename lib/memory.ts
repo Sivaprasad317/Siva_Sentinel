@@ -2,6 +2,7 @@
 // topic and by time ("today", "this week", "latest"). This is what lets her answer from what she has
 // read herself — not only from the current top-60 briefing. Pure functions; easy to test.
 import type { FeedLogEntry } from './types';
+import { dtf } from './format';
 
 const DAY = 86_400_000;
 
@@ -93,5 +94,5 @@ export function freshness(lastRunAt: string | null | undefined, now: Date): { ag
 export function fmtDay(iso: string, tz: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-GB', { timeZone: tz, day: '2-digit', month: 'short' });
+  return dtf('en-GB', { timeZone: tz, day: '2-digit', month: 'short' }).format(d);
 }

@@ -33,3 +33,16 @@ test('custom feeds cannot point at local addresses', () => {
   assert.equal(validateCustomSource('Mine', 'http://127.0.0.1:8080/feed').ok, false);
   assert.equal(validateCustomSource('Mine', 'https://example.com/feed.xml').ok, true);
 });
+
+test('custom feeds keep their own scheme, host and port', () => {
+  const v = validateCustomSource('Mine', 'http://www.example.org:8080/rss#top');
+  assert.ok(v.ok);
+  if (v.ok) assert.equal(v.url, 'http://www.example.org:8080/rss');
+});
+
+test('readTextLimited stops oversized bodies', async () => {
+  const { readTextLimited } = await import('../lib/http');
+  assert.equal(await readTextLimited(new Response('hello'), 10), 'hello');
+  await assert.rejects(readTextLimited(new Response('x'.repeat(50)), 10), /too large/);
+  await assert.rejects(readTextLimited(new Response('x', { headers: { 'content-length': '999' } }), 10), /too large/);
+});
