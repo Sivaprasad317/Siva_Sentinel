@@ -9,4 +9,3 @@ data/
 npm-debug.log*
 .DS_Store
 video/out/
-video/public/voice/*.wav

@@ -4,26 +4,17 @@ import { Background } from "../components/Background";
 import { Icon } from "../components/Icons";
 import { Orb } from "../components/Orb";
 import { Waveform } from "../components/Waveform";
-import { SIVA_LINE, USER_LINE, VOICE } from "../script";
+import { SIVA_LINE, USER_LINE, VOICE, WORD_FRAMES } from "../script";
 import { C, CLAMP, EASE_OUT, GRADIENT, INTER, MONO } from "../theme";
 
 const WORDS = SIVA_LINE.split(" ");
-const TOTAL_CHARS = WORDS.reduce((n, w) => n + w.length + 1, 0);
-/** Frame at which each word of Siva's reply starts (spread by word length). */
-const WORD_AT = (() => {
-  let chars = 0;
-  return WORDS.map((w) => {
-    const at = VOICE.sivaStart + (chars / TOTAL_CHARS) * (VOICE.sivaEnd - VOICE.sivaStart);
-    chars += w.length + 1;
-    return at;
-  });
-})();
-
-const CARDS: { at: number; tag: string; color: string; text: string }[] = [
-  { at: 0.12, tag: "CRITICAL · CISA KEV", color: C.red, text: "Flaw actively exploited in the wild" },
-  { at: 0.5, tag: "HIGH · RANSOMWARE", color: C.amber, text: "Group claims new victims" },
-  { at: 0.68, tag: "MEDIUM · PHISHING", color: C.yellow, text: "Wave targeting banks" },
-  { at: 0.86, tag: "DO THIS FIRST", color: C.green, text: "Patch the exploited VPN flaw" },
+// Each card pops in when Siva says its keyword.
+const wordFrame = (word: string) => WORD_FRAMES[WORDS.findIndex((w) => w.toLowerCase().startsWith(word))];
+const CARDS: { word: string; tag: string; color: string; text: string }[] = [
+  { word: "critical", tag: "CRITICAL · CISA KEV", color: C.red, text: "Flaw actively exploited in the wild" },
+  { word: "ransomware", tag: "HIGH · RANSOMWARE", color: C.amber, text: "Group claims new victims" },
+  { word: "phishing", tag: "MEDIUM · PHISHING", color: C.yellow, text: "Wave targeting banks" },
+  { word: "patch", tag: "DO THIS FIRST", color: C.green, text: "Patch the exploited VPN flaw" },
 ];
 
 export const VoiceDemo: React.FC<{ withVoice?: boolean }> = ({ withVoice = false }) => {
@@ -124,12 +115,12 @@ export const VoiceDemo: React.FC<{ withVoice?: boolean }> = ({ withVoice = false
         <div style={{ fontSize: 40, lineHeight: 1.35, fontWeight: 600, height: 112, overflow: "hidden" }}>
           {(() => {
             // Show the reply 10 words at a time, highlighting each word as it is spoken.
-            const current = Math.max(0, WORD_AT.filter((t) => frame >= t).length - 1);
+            const current = Math.max(0, WORD_FRAMES.filter((t) => frame >= t).length - 1);
             const startIdx = Math.floor(current / 10) * 10;
             return WORDS.slice(startIdx, startIdx + 10).map((w, j) => {
               const i = startIdx + j;
               return (
-                <span key={i} style={{ color: frame >= WORD_AT[i] ? C.fg : C.line2 }}>
+                <span key={i} style={{ color: frame >= WORD_FRAMES[i] ? C.fg : C.line2 }}>
                   {w}{" "}
                 </span>
               );
@@ -138,7 +129,7 @@ export const VoiceDemo: React.FC<{ withVoice?: boolean }> = ({ withVoice = false
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 20 }}>
           {CARDS.map((c) => {
-            const at = VOICE.sivaStart + c.at * (VOICE.sivaEnd - VOICE.sivaStart);
+            const at = wordFrame(c.word);
             return (
               <div
                 key={c.tag}
