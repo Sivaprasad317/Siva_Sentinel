@@ -8,3 +8,5 @@ data/
 .env.*.local
 npm-debug.log*
 .DS_Store
+video/out/
+video/public/voice/*.wav
