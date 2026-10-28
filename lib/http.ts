@@ -116,7 +116,27 @@ export async function fetchWithRetry(url: string, opts: RetryOptions = {}): Prom
 
 /** Read a response body as text, refusing absurdly large bodies. */
 export async function readTextLimited(res: Response, maxBytes = 5_000_000): Promise<string> {
-  const text = await res.text();
-  if (text.length > maxBytes) throw new HttpError(0, `Response too large (${text.length} bytes)`, false);
-  return text;
+  const tooLarge = (n: number | string) => new HttpError(0, `Response too large (${n} bytes, limit ${maxBytes})`, false);
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await res.body?.cancel().catch(() => {});
+    throw tooLarge(declared);
+  }
+  if (!res.body) return '';
+  // Count bytes as they arrive and stop as soon as the limit is passed, so a huge body is never buffered.
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw tooLarge(`over ${maxBytes}`);
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
 }

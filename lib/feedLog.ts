@@ -1,6 +1,7 @@
 // The live feed log: every item Siva reads, kept (newest first) so you can see exactly what came in
 // and when — even items that did not make the top-60 briefing. Pure functions, easy to test.
 import type { FeedLogEntry, Story } from './types';
+import { urlKey } from './normalize';
 
 export const FEED_LOG_CAP = 2000;
 
@@ -35,14 +36,15 @@ export function entryFromStory(s: Story, now: string): FeedLogEntry {
  * priority are refreshed. Returns the new log (newest first, capped) and how many rows were NEW.
  */
 export function mergeFeedLog(existing: FeedLogEntry[], pool: Story[], now: string, cap = FEED_LOG_CAP): { log: FeedLogEntry[]; added: number } {
-  const byUrl = new Map(existing.map((e) => [e.url, e]));
+  const byUrl = new Map(existing.map((e) => [urlKey(e.url), e]));
   let added = 0;
   for (const s of pool) {
-    const prev = byUrl.get(s.url);
+    const k = urlKey(s.url);
+    const prev = byUrl.get(k);
     if (prev) {
-      byUrl.set(s.url, { ...entryFromStory(s, prev.firstSeenAt), firstSeenAt: prev.firstSeenAt });
+      byUrl.set(k, { ...entryFromStory(s, prev.firstSeenAt), firstSeenAt: prev.firstSeenAt });
     } else {
-      byUrl.set(s.url, entryFromStory({ ...s, firstSeenAt: now }, now));
+      byUrl.set(k, entryFromStory({ ...s, firstSeenAt: now }, now));
       added++;
     }
   }

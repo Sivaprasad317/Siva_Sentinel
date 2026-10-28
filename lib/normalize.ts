@@ -35,7 +35,11 @@ export function stripHtml(input: string, maxLen = 600): string {
 
 const TRACKING_PARAMS = /^(utm_\w+|fbclid|gclid|mc_cid|mc_eid|ref|cmpid|_hsenc|_hsmi)$/i;
 
-/** Normalise a URL so the same article from two feeds compares equal. Returns null for non-http(s) URLs. */
+/**
+ * Clean a URL (drop tracking params, fragment, trailing slash) while keeping it openable:
+ * the scheme and any "www." are left alone, since some sites only answer on one of them.
+ * Returns null for non-http(s) URLs. Use urlKey() to compare two URLs.
+ */
 export function canonicalUrl(raw: string): string | null {
   let u: URL;
   try {
@@ -44,11 +48,19 @@ export function canonicalUrl(raw: string): string | null {
     return null;
   }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-  u.protocol = 'https:';
-  u.hostname = u.hostname.toLowerCase().replace(/^www\./, '');
   u.hash = '';
   for (const key of [...u.searchParams.keys()]) if (TRACKING_PARAMS.test(key)) u.searchParams.delete(key);
   if (u.pathname.length > 1 && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
+  return u.toString();
+}
+
+/** Comparison key: the same article over http/https or with/without "www." gives the same key. */
+export function urlKey(raw: string): string {
+  const c = canonicalUrl(raw);
+  if (!c) return raw.trim();
+  const u = new URL(c);
+  u.protocol = 'https:';
+  u.hostname = u.hostname.replace(/^www\./, '');
   return u.toString();
 }
 
@@ -121,7 +133,7 @@ export function dedupeStories<T extends Dedupable>(stories: T[], threshold = 0.7
   for (const s of stories) {
     const match = out.find(
       (o) =>
-        o.url === s.url ||
+        urlKey(o.url) === urlKey(s.url) ||
         jaccard(tok(o), tok(s)) >= threshold ||
         (o.cves.length === 1 && s.cves.length === 1 && o.cves[0] === s.cves[0]),
     );
@@ -130,7 +142,7 @@ export function dedupeStories<T extends Dedupable>(stories: T[], threshold = 0.7
       continue;
     }
     for (const ref of s.sources) {
-      if (!match.sources.some((r) => r.url === ref.url)) match.sources.push(ref);
+      if (!match.sources.some((r) => urlKey(r.url) === urlKey(ref.url))) match.sources.push(ref);
     }
     match.cves = [...new Set([...match.cves, ...s.cves])];
     if (s.publishedAt && (!match.publishedAt || s.publishedAt < match.publishedAt)) match.publishedAt = s.publishedAt;

@@ -7,7 +7,7 @@
 import type { CustomSource, FeedConfig, SourceRow } from './types';
 import { FEEDS } from './config';
 import { FEED_SEEDS } from './feedSeeds';
-import { canonicalUrl } from './normalize';
+import { canonicalUrl, urlKey } from './normalize';
 import { isPrivateHost } from './netGuard';
 
 /** Guess whether a URL is a real RSS/Atom feed or just an HTML page. */
@@ -28,7 +28,7 @@ export interface StoreLike {
 
 /** Canonical key a feed URL is stored under in feedPrefs / de-dup. */
 export function feedPrefKey(url: string): string {
-  return canonicalUrl(url) ?? url.toLowerCase().replace(/\/+$/, '');
+  return canonicalUrl(url) ? urlKey(url) : url.toLowerCase().replace(/\/+$/, '');
 }
 const key = feedPrefKey;
 
