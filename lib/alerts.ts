@@ -2,6 +2,7 @@
 // Pure function so it is easy to test. "Alertable" = exploited (CISA KEV) or critical priority.
 import { randomUUID } from 'node:crypto';
 import type { AlertEntry, Story } from './types';
+import { urlKey } from './normalize';
 
 export function isAlertable(s: Story): boolean {
   return Boolean(s.kev) || s.priority === 'critical' || Boolean(s.priority === 'high' && s.kev);
@@ -12,12 +13,12 @@ export function isAlertable(s: Story): boolean {
  * Returns the new alerts and the full updated set of alerted URLs (capped).
  */
 export function diffNewAlerts(stories: Story[], alertedUrls: string[], now: Date = new Date(), maxUrls = 3000): { alerts: AlertEntry[]; alertedUrls: string[] } {
-  const known = new Set(alertedUrls);
+  const known = new Set(alertedUrls.map(urlKey));
   const alerts: AlertEntry[] = [];
   const addedUrls: string[] = [];
   for (const s of stories) {
-    if (!isAlertable(s) || known.has(s.url)) continue;
-    known.add(s.url);
+    if (!isAlertable(s) || known.has(urlKey(s.url))) continue;
+    known.add(urlKey(s.url));
     addedUrls.push(s.url);
     alerts.push({
       id: randomUUID(),
