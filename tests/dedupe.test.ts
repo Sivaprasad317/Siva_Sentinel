@@ -1,7 +1,7 @@
 // Tests for cleaning and deduplication.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canonicalUrl, dedupeStories, extractCves, parseDate, stripHtml } from '../lib/normalize';
+import { canonicalUrl, dedupeStories, urlKey, extractCves, parseDate, stripHtml } from '../lib/normalize';
 import { storyFromRaw } from '../lib/refresh';
 import type { RawItem } from '../lib/types';
 
@@ -9,10 +9,25 @@ const raw = (p: Partial<RawItem>): RawItem => ({
   title: 'x', url: 'https://a.example/x', publishedAt: '2026-10-16T00:00:00.000Z', snippet: '', source: 'A', official: false, ...p,
 });
 
-test('canonicalUrl normalises host, tracking params, fragments and slashes', () => {
-  assert.equal(canonicalUrl('http://WWW.Example.com/a/b/?utm_source=x&id=5#top'), 'https://example.com/a/b?id=5');
+test('canonicalUrl drops tracking params, fragments and slashes but keeps the URL openable', () => {
+  assert.equal(canonicalUrl('http://WWW.Example.com/a/b/?utm_source=x&id=5#top'), 'http://www.example.com/a/b?id=5');
   assert.equal(canonicalUrl('javascript:alert(1)'), null);
   assert.equal(canonicalUrl('not a url'), null);
+});
+
+test('urlKey treats http/https and www/no-www as the same article', () => {
+  assert.equal(urlKey('http://www.example.com/a/'), urlKey('https://example.com/a?utm_source=x'));
+  assert.notEqual(urlKey('https://example.com/a'), urlKey('https://example.com/b'));
+});
+
+test('dedupeStories merges the same article seen over http and https', () => {
+  const base = { title: '', source: 'x', snippet: '', cves: [], publishedAt: null };
+  const out = dedupeStories([
+    { ...base, title: 'Alpha patch released today', url: 'http://www.example.com/a', sources: [{ name: 'A', url: 'http://www.example.com/a', publishedAt: null, official: false }] },
+    { ...base, title: 'Totally different headline words', url: 'https://example.com/a', sources: [{ name: 'B', url: 'https://example.com/a', publishedAt: null, official: false }] },
+  ]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].url, 'http://www.example.com/a');
 });
 
 test('parseDate validates timestamps', () => {

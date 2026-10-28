@@ -14,7 +14,7 @@ test('RSS: extracts items, strips HTML/scripts, removes tracking params', () => 
   assert.equal(items.length, 3, 'items without a usable http(s) link are skipped');
   const [first, second, third] = items;
   assert.equal(first.title, 'Vendor X patches zero-day exploited in the wild (CVE-2026-11111)');
-  assert.equal(first.url, 'https://example.org/news/vendor-x-zero-day');
+  assert.equal(first.url, 'https://www.example.org/news/vendor-x-zero-day');
   assert.equal(first.publishedAt, '2026-10-16T09:30:00.000Z');
   assert.ok(!first.snippet.includes('<'), 'no HTML tags in snippet');
   assert.ok(!first.snippet.includes('alert(1)'), 'script content removed');

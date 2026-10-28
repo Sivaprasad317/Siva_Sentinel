@@ -7,7 +7,7 @@
 import type { CustomSource, FeedConfig, SourceRow } from './types';
 import { FEEDS } from './config';
 import { FEED_SEEDS } from './feedSeeds';
-import { canonicalUrl } from './normalize';
+import { canonicalUrl, urlKey } from './normalize';
 import { isPrivateHost } from './netGuard';
 
 /** Guess whether a URL is a real RSS/Atom feed or just an HTML page. */
@@ -28,7 +28,7 @@ export interface StoreLike {
 
 /** Canonical key a feed URL is stored under in feedPrefs / de-dup. */
 export function feedPrefKey(url: string): string {
-  return canonicalUrl(url) ?? url.toLowerCase().replace(/\/+$/, '');
+  return canonicalUrl(url) ? urlKey(url) : url.toLowerCase().replace(/\/+$/, '');
 }
 const key = feedPrefKey;
 
@@ -75,9 +75,5 @@ export function validateCustomSource(name: unknown, url: unknown): { ok: true; n
   const c = canonicalUrl(url);
   if (!c) return { ok: false, error: 'Enter a valid http(s) feed URL.' };
   if (isPrivateHost(new URL(c).hostname)) return { ok: false, error: 'Feed URLs must point to a public website, not a local or private address.' };
-  // Fetch the feed exactly as given (canonicalUrl forces https and drops "www.", which breaks
-  // http-only feeds and custom ports); the canonical form is only used for de-duplication.
-  const exact = new URL(url.trim());
-  exact.hash = '';
-  return { ok: true, name: name.trim(), url: exact.toString() };
+  return { ok: true, name: name.trim(), url: c };
 }

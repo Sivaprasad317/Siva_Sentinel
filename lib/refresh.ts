@@ -10,7 +10,7 @@ import { fetchFeed, fetchKev, fetchNvdCvss, recentKev } from './sources';
 import { fetchHackerNews, fetchRansomwareLive } from './extraSources';
 import { mapLimit, readArticle } from './article';
 import { getIntel, matchIntel } from './intel';
-import { dedupeStories, extractCves } from './normalize';
+import { dedupeStories, extractCves, urlKey } from './normalize';
 import { categorize, scoreStory } from './prioritize';
 import { summarizeBriefing } from './ai';
 import { readStore, updateStore } from './store';
@@ -180,7 +180,7 @@ export async function runRefresh(trigger: Briefing['trigger']): Promise<Briefing
   const feeds = resolveFeeds(store0);
   // Remember when each URL was first seen, so the dashboard can mark genuinely NEW stories.
   const firstSeen = new Map<string, string>();
-  for (const b of previous.slice(0, 5)) for (const st of b.stories) if (st.firstSeenAt && !firstSeen.has(st.url)) firstSeen.set(st.url, st.firstSeenAt);
+  for (const b of previous.slice(0, 5)) for (const st of b.stories) if (st.firstSeenAt && !firstSeen.has(urlKey(st.url))) firstSeen.set(urlKey(st.url), st.firstSeenAt);
   const statuses: SourceStatus[] = [];
   const noItems: { items: RawItem[]; status: SourceStatus | null } = { items: [], status: null };
 
@@ -284,7 +284,7 @@ export async function runRefresh(trigger: Briefing['trigger']): Promise<Briefing
   // Keep EVERYTHING we read in the live feed log, not just the top-60 briefing.
   const pool = stories.slice();
   stories = stories.slice(0, MAX_STORIES);
-  for (const s of stories) s.firstSeenAt = firstSeen.get(s.url) ?? retrievedAt;
+  for (const s of stories) s.firstSeenAt = firstSeen.get(urlKey(s.url)) ?? retrievedAt;
 
   setProgress('Asking Gemini to explain the briefing in simple English');
   const ai = await summarizeBriefing(stories);

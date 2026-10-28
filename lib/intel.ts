@@ -42,6 +42,8 @@ export interface IntelIndex {
   techniques: IntelTechniqueFull[];
   profiles: Record<string, string>; // normalised name -> crocodyli folder URL
   status: { attack: string; misp: string; profiles: string; malware?: string };
+  /** Set when a download failed: try again after this time instead of waiting a full week. */
+  retryAt?: string;
 }
 
 /** An ATT&CK technique with the defensive knowledge Siva explains (what it is, how to spot it, how to stop it). */
@@ -234,6 +236,14 @@ export function matchIntel(text: string, index: Pick<IntelIndex, 'techniques' | 
 
 const g = globalThis as unknown as { __sivaIntel?: { index: IntelIndex; matchers: Matcher[] } };
 const WEEK = 7 * 86_400_000;
+const RETRY_AFTER_FAILURE = 6 * 3_600_000;
+
+/** True when the index is old enough (or had a failed source long enough ago) to download again. */
+export function intelNeedsRebuild(index: IntelIndex, now = Date.now()): boolean {
+  if ((index.version ?? 1) < INTEL_INDEX_VERSION) return true;
+  if (now - Date.parse(index.builtAt) >= WEEK) return true;
+  return Boolean(index.retryAt && now >= Date.parse(index.retryAt));
+}
 
 function cacheFile() {
   return path.join(getEnv().dataDir, 'intel-index.json');
@@ -288,8 +298,7 @@ async function buildIndex(previous: IntelIndex | null): Promise<IntelIndex> {
   }
   index.groups = [...attackGroups, ...mispGroups];
   index.software = [...attackSoftware, ...malpedia];
-  // A failed download should be retried in ~6 hours, not after another full week.
-  if (Object.values(index.status).some((s) => s.startsWith('failed'))) index.builtAt = new Date(Date.now() - WEEK + 6 * 3_600_000).toISOString();
+  if (Object.values(index.status).some((st) => st?.startsWith('failed'))) index.retryAt = new Date(Date.now() + RETRY_AFTER_FAILURE).toISOString();
   return index;
 }
 
@@ -297,7 +306,7 @@ async function buildIndex(previous: IntelIndex | null): Promise<IntelIndex> {
 export async function getIntel(allowDownload = true): Promise<{ index: IntelIndex; matchers: Matcher[] } | null> {
   if (!getEnv().enableIntel) return null;
   const mem = g.__sivaIntel;
-  if (mem && (!allowDownload || Date.now() - Date.parse(mem.index.builtAt) < WEEK)) return mem;
+  if (mem && (!allowDownload || !intelNeedsRebuild(mem.index))) return mem;
   let disk: IntelIndex | null = null;
   try {
     disk = JSON.parse(await fs.readFile(cacheFile(), 'utf8')) as IntelIndex;
@@ -306,8 +315,7 @@ export async function getIntel(allowDownload = true): Promise<{ index: IntelInde
   }
   let index = disk;
   if (!index && !allowDownload) return null; // not downloaded yet: the next refresh will do it
-  const outdated = index && (index.version ?? 1) < INTEL_INDEX_VERSION;
-  if (!index || (allowDownload && (outdated || Date.now() - Date.parse(index.builtAt) >= WEEK))) {
+  if (!index || (allowDownload && intelNeedsRebuild(index))) {
     index = await buildIndex(disk);
     if (index.groups.length || index.techniques.length) {
       await fs.mkdir(path.dirname(cacheFile()), { recursive: true });
